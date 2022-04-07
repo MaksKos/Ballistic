@@ -1,0 +1,5 @@
+/.ipynb_checkpoints
+/modules/__pycache__
+/modules/solver_exampl.py
+example_pmax.ipynb
+example_cells.ipynb
