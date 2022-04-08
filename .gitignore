@@ -3,3 +3,4 @@
 /modules/solver_exampl.py
 example_pmax.ipynb
 example_cells.ipynb
+/tests/__pycache__

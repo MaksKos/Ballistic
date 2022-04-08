@@ -4,14 +4,9 @@ version 1.0
 This module solves inverse problem of internal ballistics.
 
 """
-import copy
-import xdrlib
-from argon2 import PasswordHasher
 import numpy as np
 from pyballistics import ozvb_lagrange, get_db_powder, get_powder_names
 from scipy.optimize import minimize, OptimizeResult
-
-from modules.solver_exampl import pressure_on_cannon
 
 class Solver():
 
@@ -40,7 +35,7 @@ class Solver():
         wq_0 = self.initial_parametrs['powders'][0]['omega']/self.initial_parametrs['init_conditions']['q']
         ro_0 = self.initial_parametrs['powders'][0]['omega']/self.initial_parametrs['init_conditions']['W_0']
 
-        initial_guess = np.array([wq_0, ro_0])
+        initial_guess = np.array([[wq_0, ro_0]])
         result = minimize(self.__minimum_mass, initial_guess, method='nelder-mead',
                          options={'xtol': 1e-4, 'disp': False, 'return_all': True}) 
         self.result = OptimizeResult(result)
@@ -199,7 +194,7 @@ class Cannon():
         pressure_inside = np.interp(self.r_outside_coordinate, self.x, self.p)
         sqr = (3*self.sigma_steel + 2*pressure_inside) / (3*self.sigma_steel - 4*pressure_inside)
         
-        if sqr < 0:
+        if sqr[sqr < 0]:
             raise ValueError("pressure in tube destroy cannon")
         radius_inside = np.interp(self.r_outside_coordinate, self.r_inside_coordinate, self.r_inside)
         radius_outside = radius_inside*np.sqrt(sqr)
@@ -255,11 +250,11 @@ class Cannon():
         pressure_max = self.__matrix_p[layer, border]
 
         pressure = list([pressure_max, pressure_max])
-        coordinate = list(self.__matrix_x[0,0], self.__matrix_x[layer, border])
+        coordinate = list([self.__matrix_x[0,0], self.__matrix_x[layer, border]])
         previous_position = coordinate[-1]
         current_position = coordinate[-1]
 
-        for i in range(layer, self.__matrix_x.shape[0]):
+        for i in range(layer+1, self.__matrix_x.shape[0]):
 
             ind = np.argmax(self.__matrix_p[i][border:])
             current_position = self.__matrix_x[i][ind+border]
@@ -271,6 +266,8 @@ class Cannon():
             else:
                 pressure.append(self.__matrix_p[i][ind+border])
                 coordinate.append(self.__matrix_x[i][-1])
-
+        pressure.append(self.__matrix_p[-1][-1])
+        coordinate.append(self.__matrix_x[-1][-1])
         self.x = np.array(coordinate)
+        self.x += np.abs(self.x[0])
         self.p = np.array(pressure)
