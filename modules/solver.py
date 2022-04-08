@@ -88,7 +88,7 @@ class Solver():
         self._min_criterion = self.cannon_mass(result_dict)
 
         diff_velocity = self.initial_parametrs['stop_conditions']['v_p'] - result_dict['layers'][-1]['u'][-1]
-        diff_lenght = result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p']
+        diff_lenght = np.abs(result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p'])
 
         heviside = np.heaviside([diff_velocity, diff_lenght], 0)
         del_array = np.abs(np.array([diff_velocity, diff_lenght])) 
@@ -132,7 +132,7 @@ class Cannon():
     cone_k6 = 1/200
     cone_k7 = 1/30
     hi = 1.5
-    bottle_capacity = 1.2
+    bottle_capacity = 1.25
     n_safety = 1
     sigma_steel = 1e9
     ro = 7800
@@ -172,7 +172,7 @@ class Cannon():
         l_1 = W_1*12/np.math.pi / (d_k**2 + d_k*d_2 + d_2**2)
 
         self.r_inside_coordinate = np.cumsum([0, l_1, l_2, l_6, l_7, self.__matrix_x[-1][-1]])
-        self.r_inside = np.array([d_k, d_4, d_3, d_2, diametr, diametr]) / 2
+        self.r_inside = np.array([d_k, d_2, d_3, d_4, diametr, diametr]) / 2
 
     def __outside_geometry(self):
         """
@@ -198,7 +198,8 @@ class Cannon():
             raise ValueError("pressure in tube destroy cannon")
         radius_inside = np.interp(self.r_outside_coordinate, self.r_inside_coordinate, self.r_inside)
         radius_outside = radius_inside*np.sqrt(sqr)
-        self.r_outside = np.array([max(radius_outside[i], 1.075*radius_inside[i]) for i in range(len(radius_outside))])
+        self.r_outside = np.array([max(radius_outside[i], 1.15*radius_inside[i]) for i in range(len(radius_outside))])
+        self.r_outside[1] = self.r_outside[0]
 
     def cannon_geometry(self):
         """
@@ -219,7 +220,6 @@ class Cannon():
             TypeError("check of real pressure fail")
         self.r_inside = r2
         self.r_outside = r1
-        del self.r_inside_coordinate, self.r_outside_coordinate
 
     def get_volume(self):
         """

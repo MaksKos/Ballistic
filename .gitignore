@@ -4,3 +4,5 @@
 example_pmax.ipynb
 example_cells.ipynb
 /tests/__pycache__
+/data
+/Geometry.ipynb
