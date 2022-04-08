@@ -15,7 +15,7 @@ p_fors = 10*1e6      #давление форсирования (гладкос�
 initial_dict_static =  {
    'powders': 
     [
-       {'omega': None, 'dbname': None}
+       {'omega': None, 'dbname': '14/7 В/А'}
     ],
   'init_conditions': 
     {
@@ -52,7 +52,6 @@ ro_0 = 500
 
 
 initial_dict = copy.deepcopy(initial_dict_static)
-initial_dict['powders'][0]['dbname'] = powders_names[10]
 initial_dict['powders'][0]['omega'] = wq_0*q
 initial_dict['init_conditions']['W_0'] = wq_0*q/ro_0
 solv = Solver(initial_dict)

@@ -37,7 +37,7 @@ class Solver():
 
         initial_guess = np.array([[wq_0, ro_0]])
         result = minimize(self.__minimum_mass, initial_guess, method='nelder-mead',
-                         options={'xtol': 1e-4, 'disp': False, 'return_all': True}) 
+                         options={'xtol': 1e-4, 'disp': True, 'return_all': True}) 
         self.result = OptimizeResult(result)
         return self.result.success
 
@@ -52,7 +52,7 @@ class Solver():
             return {None}
 
         return {
-            'name': self.initial_parametrs['powders'][0]['name'],
+            'name': self.initial_parametrs['powders'][0]['dbname'],
             'wq': self.result.x[0],
             'ro': self.result.x[1],
             "mass": self._min_criterion,
@@ -194,7 +194,7 @@ class Cannon():
         pressure_inside = np.interp(self.r_outside_coordinate, self.x, self.p)
         sqr = (3*self.sigma_steel + 2*pressure_inside) / (3*self.sigma_steel - 4*pressure_inside)
         
-        if sqr[sqr < 0]:
+        if min(sqr) < 0:
             raise ValueError("pressure in tube destroy cannon")
         radius_inside = np.interp(self.r_outside_coordinate, self.r_inside_coordinate, self.r_inside)
         radius_outside = radius_inside*np.sqrt(sqr)
@@ -208,7 +208,7 @@ class Cannon():
         self.__inside_geometry()
         self.__outside_geometry()
         
-        self.coordinate = np.unique([self.r_inside_coordinate, self.r_outside_coordinate])
+        self.coordinate = np.unique(np.concatenate((self.r_inside_coordinate, self.r_outside_coordinate), axis=None))
         r1 = np.interp(self.coordinate, self.r_outside_coordinate, self.r_outside)
         r2 = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
         a_21 = r2/r1
