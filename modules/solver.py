@@ -119,6 +119,11 @@ class Solver():
         matrix_x = self.make_matrix(result_dict, 'x')
         matrix_p = self.make_matrix(result_dict, 'p')
 
+        #add layre to 'p' for shape alignment with 'x'
+        matrix_p = np.row_stack((matrix_p.T, matrix_p.T[-1])).T
+        #calculate coordinate from 0 point
+        matrix_x += matrix_x[0][0]
+
         cannon = Cannon(diametr, matrix_x, matrix_p)
         cannon.cannon_geometry()
         cannon.get_mass()
@@ -127,6 +132,7 @@ class Solver():
 
 class Cannon():
 
+    n = 100 # cells for cannon strenght
     cone_k1 = 1/75
     cone_k2 = 1/2.5
     cone_k6 = 1/200
@@ -142,15 +148,12 @@ class Cannon():
         self.diametr = diametr
         self.__matrix_x = coordinate
         self.__matrix_p = pressure
-        self.x = None
-        self.p = None
+        self.coordinate = np.linspace(coordinate[0], coordinate[-1], Cannon.n)
+        self.pressure = None
         self.r_inside = None
         self.r_outside = None
         self.r_inside_coordinate = None
-        self.r_outside_coordinate = None
-        self.coordinate = None
-        self.volume = None
-        self.mass = None
+        self.pressure_in_tube = None
 
     def __inside_geometry(self):
         """
@@ -182,44 +185,31 @@ class Cannon():
             raise ValueError("empty inside coordinate")
         if self.r_inside is None:
             raise ValueError("empty inside radius")
-
-        l_k = self.r_inside_coordinate[4]
-        self.r_outside_coordinate = np.array([0, 1.2*l_k, 1.6*l_k, l_k + self.__matrix_x[-1,-1]])
-
-        if self.pressure_on_tube():
-            pass
-        if self.p.max() > self.sigma_steel:
+        if self.pressure.max() > self.sigma_steel:
             raise ValueError("pressure in tube more than sigma (steel)")
 
-        pressure_inside = np.interp(self.r_outside_coordinate, self.x, self.p)
-        sqr = (3*self.sigma_steel + 2*pressure_inside) / (3*self.sigma_steel - 4*pressure_inside)
+        sqr = (3*self.sigma_steel+2*self.pressure) / (3*self.sigma_steel-4*self.pressure)
         
         if min(sqr) < 0:
             raise ValueError("pressure in tube destroy cannon")
-        radius_inside = np.interp(self.r_outside_coordinate, self.r_inside_coordinate, self.r_inside)
+        radius_inside = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
         radius_outside = radius_inside*np.sqrt(sqr)
-        self.r_outside = np.array([max(radius_outside[i], 1.15*radius_inside[i]) for i in range(len(radius_outside))])
-        self.r_outside[1] = self.r_outside[0]
+        self.r_outside = np.array([max(radius_outside[i], 1.15*radius_inside[i]) for i in range(Cannon.n)])
 
     def cannon_geometry(self):
         """
-        Method construct cannon
+        Method for construct cannon
         """   
 
         self.__inside_geometry()
         self.__outside_geometry()
-        
-        self.coordinate = np.unique(np.concatenate((self.r_inside_coordinate, self.r_outside_coordinate), axis=None))
-        r1 = np.interp(self.coordinate, self.r_outside_coordinate, self.r_outside)
-        r2 = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
-        a_21 = r2/r1
-        pressure_real = 3/2*self.sigma_steel*(a_21**2 - 1)/(2*a_21**2 + 1)
-        pressure_coordinate = np.interp(self.coordinate, self.x, self.p)
-        n_real = pressure_real/pressure_coordinate
+        # find inside radius in each of coordinate
+        r_inside = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
+        a_21 = r_inside/self.r_outside
+        self.pressure_on_tube = 3/2*self.sigma_steel*(a_21**2 - 1)/(2*a_21**2 + 1)
+        n_real = self.pressure_in_tube/self.pressure
         if min(n_real) < 1:
             TypeError("check of real pressure fail")
-        self.r_inside = r2
-        self.r_outside = r1
 
     def get_volume(self):
         """
@@ -229,45 +219,23 @@ class Cannon():
             raise ValueError("empty coordinate")
         x = self.coordinate
         r1 = self.r_outside
-        r2 = self.r_inside
+        r2 = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
         volume_1 = 1/3*np.math.pi*(x[1:]-x[:-1])*(r1[:-1]**2 + r1[:-1]*r1[1:] + r1[1:]**2) 
         volume_2 = 1/3*np.math.pi*(x[1:]-x[:-1])*(r2[:-1]**2 + r2[:-1]*r2[1:] + r2[1:]**2) 
         self.volume = np.sum(volume_1-volume_2)
 
     def get_mass(self):
-        if self.volume is None:
-            self.get_volume()
-        self.mass = self.volume*self.ro
+        self.mass = self.get_volume()*self.ro
 
     def pressure_on_tube(self):
         """
         Method for calculate pressure distribution along the cannon's tube
         """
+        if self.__matrix_p.shape != self.__matrix_x:
+            raise ValueError('shape not alignment')
 
-        index = np.argmax(self.__matrix_p)
-        border = index%self.__matrix_p.shape[1]
-        layer = index//self.__matrix_p.shape[1]
-        pressure_max = self.__matrix_p[layer, border]
+        pressure_layers = np.zeros((self.__matrix_p.shape[0], Cannon.n))
+        for i in range(self.__matrix_p.shape[0]):
+            pressure_layers[i] = np.interp(self.coordinate, self.__matrix_x[i], self.__matrix_p[i], left=0, right=0)
+        self.pressure = np.max(pressure_layers, axis=0)
 
-        pressure = list([pressure_max, pressure_max])
-        coordinate = list([self.__matrix_x[0,0], self.__matrix_x[layer, border]])
-        previous_position = coordinate[-1]
-        current_position = coordinate[-1]
-
-        for i in range(layer+1, self.__matrix_x.shape[0]):
-
-            ind = np.argmax(self.__matrix_p[i][border:])
-            current_position = self.__matrix_x[i][ind+border]
-            if current_position-previous_position >= 0:
-                pressure.append(self.__matrix_p[i][ind+border])
-                coordinate.append(self.__matrix_x[i][ind+border])
-                previous_position = current_position
-                border += ind
-            else:
-                pressure.append(self.__matrix_p[i][ind+border])
-                coordinate.append(self.__matrix_x[i][-1])
-        pressure.append(self.__matrix_p[-1][-1])
-        coordinate.append(self.__matrix_x[-1][-1])
-        self.x = np.array(coordinate)
-        self.x += np.abs(self.x[0])
-        self.p = np.array(pressure)
