@@ -10,6 +10,7 @@ from scipy.optimize import minimize, OptimizeResult
 
 class Solver():
 
+    min_velocity = 1800
 
     def __init__(self, initial_parametrs, *args, **kwargs) -> None:
 
@@ -96,8 +97,7 @@ class Solver():
             return 2e10
 
         self._min_criterion = self.cannon_mass(result_dict)
-
-        diff_velocity = self.initial_parametrs['stop_conditions']['v_p'] - result_dict['layers'][-1]['u'][-1]
+        diff_velocity = self.min_velocity - result_dict['layers'][-1]['u'][-1]
         diff_lenght = np.abs(result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p'])
         diff_pressure = np.max(self.make_matrix(result_dict, 'p')) - self.initial_parametrs['stop_conditions']['p_max']
 
@@ -146,8 +146,8 @@ class Solver():
     def __stop_reason(self):
         if self.result is None:
             raise TypeError("can't find reason: empty result")
-        w = self.result[0]*self.initial_parametrs['init_conditions']['q']
-        ro = self.result[1]
+        w = self.result.x[0]*self.initial_parametrs['init_conditions']['q']
+        ro = self.result.x[1]
         self.initial_parametrs['powders'][0]['omega'] = w
         self.initial_parametrs['init_conditions']['W_0'] = w/ro
         result = ozvb_lagrange(self.initial_parametrs)
