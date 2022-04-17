@@ -53,6 +53,7 @@ class Solver():
 
         return {
             'name': self.initial_parametrs['powders'][0]['dbname'],
+            'succes': self.result.success,
             'wq': self.result.x[0],
             'ro': self.result.x[1],
             "mass": self._min_criterion,
@@ -74,7 +75,7 @@ class Solver():
 
         """
         #factor scaling
-        a = np.array([1e-2, 1])
+        a = np.array([1e-2, 1, 1e-8])
         w = initial_guess[0]*self.initial_parametrs['init_conditions']['q']
         ro = initial_guess[1]
         self.initial_parametrs['powders'][0]['omega'] = w
@@ -89,9 +90,10 @@ class Solver():
 
         diff_velocity = self.initial_parametrs['stop_conditions']['v_p'] - result_dict['layers'][-1]['u'][-1]
         diff_lenght = np.abs(result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p'])
+        diff_pressure = np.max(self.make_matrix(result_dict, 'p')) - self.initial_parametrs['stop_conditions']['p_max']
 
-        heviside = np.heaviside([diff_velocity, diff_lenght], 0)
-        del_array = np.abs(np.array([diff_velocity, diff_lenght])) 
+        heviside = np.heaviside([diff_velocity, diff_lenght, diff_pressure], 0)
+        del_array = np.abs(np.array([diff_velocity, diff_lenght, diff_pressure])) 
         
         return self._min_criterion + np.sum(1e4*(a*del_array)*heviside)
 
@@ -126,9 +128,11 @@ class Solver():
         matrix_x += np.abs(matrix_x[0][0])
 
         cannon = Cannon(diametr, matrix_x, matrix_p, l0)
-        cannon.cannon_geometry()
-        cannon.get_mass()
-        return cannon.mass
+        try:
+            mass = cannon.get_mass()
+        except (ValueError, TypeError):
+            mass = 5e6
+        return mass
 
 
 class Cannon():
@@ -218,14 +222,14 @@ class Cannon():
         self.pressure_tube = 3/2*self.sigma_steel*(a_21**2 - 1)/(2*a_21**2 + 1)
         self.n_real = self.pressure_tube/self.pressure
         if min(self.n_real) < 1:
-            TypeError("check of real pressure fail")
+            ValueError("check of real pressure fail")
 
     def get_volume(self):
         """
         Calculate volume of cannon 
         """
         if self.coordinate is None:
-            raise ValueError("empty coordinate")
+            self.cannon_geometry()
         x = self.coordinate
         r1 = self.r_outside
         r2 = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
