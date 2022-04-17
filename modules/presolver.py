@@ -43,7 +43,6 @@ def init_dict(dbname, wq=None, ro=None):
        'steps_max': 8000,   
        't_max': 0.08,
        'p_max': max_pressure,
-        'v_p': velocity_pm,
     }
     }
 

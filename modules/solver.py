@@ -23,6 +23,7 @@ class Solver():
         self._min_criterion = None
         self.result = None
         self.initial_parametrs = initial_parametrs
+        self.reason = None
         return None
 
     def solution(self) -> dict:
@@ -45,18 +46,26 @@ class Solver():
 
         if self.result is None:
             print ("No result")
-            return {None}
+            return None
         
         if not self.result.success:
             print("No success in result")
-            return {None}
-
+            return {
+            'name': self.initial_parametrs['powders'][0]['dbname'],
+            'succes': self.result.success,
+            'wq': None,
+            'ro': None,
+            "mass": None,
+            "reason": None,
+            }
+        self.__stop_reason()
         return {
             'name': self.initial_parametrs['powders'][0]['dbname'],
             'succes': self.result.success,
             'wq': self.result.x[0],
             'ro': self.result.x[1],
             "mass": self._min_criterion,
+            "reason": self.reason
         }
 
     @staticmethod 
@@ -134,6 +143,16 @@ class Solver():
             mass = 5e6
         return mass
 
+    def __stop_reason(self):
+        if self.result is None:
+            raise TypeError("can't find reason: empty result")
+        w = self.result[0]*self.initial_parametrs['init_conditions']['q']
+        ro = self.result[1]
+        self.initial_parametrs['powders'][0]['omega'] = w
+        self.initial_parametrs['init_conditions']['W_0'] = w/ro
+        result = ozvb_lagrange(self.initial_parametrs)
+        self.reason = result['stop_reason']
+        
 
 class Cannon():
 
