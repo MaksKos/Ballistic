@@ -11,7 +11,6 @@ from scipy.optimize import minimize, OptimizeResult
 class Solver():
 
     min_velocity = 1800
-
     def __init__(self, initial_parametrs, *args, **kwargs) -> None:
 
         if  initial_parametrs['powders'][0]['dbname'] is None:
@@ -163,10 +162,11 @@ class Cannon():
     cone_k7 = 1/30
     hi = 1.5
     bottle_capacity = 1.25
-    n_safety = 1
-    sigma_steel = 1e9
-    ro = 7800
+    n_safety = 1.1
+    sigma_steel = 10e8
+    ro = 7856
     W_sn = 0 
+    k_min_r_otside = 1.5
 
     def __init__(self, diametr, coordinate, pressure, l0) -> None:
         if coordinate.shape != pressure.shape:
@@ -204,7 +204,7 @@ class Cannon():
 
         self.r_inside_coordinate = np.cumsum([0, l_1, l_2, l_6, l_7, self.__matrix_x[-1][-1]-self.l0])
         self.r_inside = np.array([d_k, d_2, d_3, d_4, diametr, diametr]) / 2
-        self.coordinate = np.linspace(0, l_1+l_2+l_6+l_7+self.__matrix_x[-1][-1]-self.l0, Cannon.n)
+        self.coordinate = np.linspace(0, self.r_inside_coordinate[-1], Cannon.n)
 
     def __outside_geometry(self):
         """
@@ -216,16 +216,16 @@ class Cannon():
             raise ValueError("empty inside radius")
         if self.pressure is None:
             raise ValueError("empty pressure")
-        if self.pressure.max() > self.sigma_steel:
-            raise ValueError("pressure in tube more than sigma (steel)")
+        if 0.75*self.pressure.max() >= self.sigma_steel:
+            raise ValueError("pressure in tube more than 3/4 sigma (steel)")
 
-        sqr = (3*self.sigma_steel+2*self.pressure) / (3*self.sigma_steel-4*self.pressure)
+        sqr = (3*self.sigma_steel+2*self.pressure*self.n_safety) / (3*self.sigma_steel-4*self.pressure*self.n_safety)
         
         if min(sqr) < 0:
             raise ValueError("pressure in tube destroy cannon")
         radius_inside = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
         radius_outside = radius_inside*np.sqrt(sqr)
-        self.r_outside = np.array([max(radius_outside[i], 1.15*radius_inside[i]) for i in range(Cannon.n)])
+        self.r_outside = np.array([max(radius_outside[i], self.k_min_r_otside*radius_inside[i]) for i in range(Cannon.n)])
 
     def cannon_geometry(self):
         """
@@ -249,13 +249,15 @@ class Cannon():
         """
         if self.coordinate is None:
             self.cannon_geometry()
-        x = self.coordinate
+        x1 = self.coordinate
+        x2 = self.r_inside_coordinate
         r1 = self.r_outside
-        r2 = np.interp(self.coordinate, self.r_inside_coordinate, self.r_inside)
-        volume_1 = 1/3*np.math.pi*(x[1:]-x[:-1])*(r1[:-1]**2 + r1[:-1]*r1[1:] + r1[1:]**2) 
-        volume_2 = 1/3*np.math.pi*(x[1:]-x[:-1])*(r2[:-1]**2 + r2[:-1]*r2[1:] + r2[1:]**2) 
-        return np.sum(volume_1-volume_2)
+        r2 = self.r_inside
 
+        volume_1 = 1/3*np.math.pi*np.sum((x1[1:]-x1[:-1])*(r1[:-1]**2 + r1[:-1]*r1[1:] + r1[1:]**2)) 
+        volume_2 = 1/3*np.math.pi*np.sum((x2[1:]-x2[:-1])*(r2[:-1]**2 + r2[:-1]*r2[1:] + r2[1:]**2)) 
+        return volume_1-volume_2
+ 
 
     def get_mass(self):
         return self.get_volume()*self.ro
