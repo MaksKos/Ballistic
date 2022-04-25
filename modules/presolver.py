@@ -1,6 +1,7 @@
 import numpy as np
 from pyballistics import ozvb_lagrange
 from modules.solver import Cannon, Solver
+from joblib import Parallel, delayed
 
 def init_dict(dbname, wq=None, ro=None):
     
@@ -78,26 +79,18 @@ def random_points(initial_dict: dict, center, bounds, max_loop = 1000):
 
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
-   velocity_pm = 1800
-   reason = list()
-   mass = np.full(max_loop, None)
+   tabel = list()
    for i in range(max_loop):
-      initial_dict['powders'][0]['omega'] = wq[i] * initial_dict['init_conditions']['q']
-      initial_dict['init_conditions']['W_0'] = initial_dict['powders'][0]['omega']/ro[i]
-      result = ozvb_lagrange(initial_dict)
+      tabel.append(generate_point(wq[i], ro[i], initial_dict, 1800))
+   return tabel
 
-      if result['stop_reason'] == 'x_p' and result['layers'][-1]['u'][-1] < velocity_pm:
-         reason.append('v_p')
-      else:
-         reason.append(result['stop_reason'])
-      if reason[-1] == 'x_p':
-         mass[i] = get_mass(result, initial_dict)
-   return {
-      'wq': wq,
-      'ro': ro,
-      'reason': reason,
-      'mass': mass,
-      }  
+def random_points_multiproc(initial_dict: dict, center, bounds, max_loop = 1000, core=2):
+   
+   wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
+   ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
+   tabel = Parallel(n_jobs=core)(delayed(generate_point)(wq[i], ro[i], initial_dict, 1800) for i in range(max_loop))
+
+   return tabel
 
 def get_mass(result, initial_dict):
 
@@ -112,3 +105,27 @@ def get_mass(result, initial_dict):
    matrix_x += np.abs(matrix_x[0][0])
    cannon = Cannon(diametr, matrix_x, matrix_p, l0)
    return cannon.get_mass()
+
+def generate_point(wq, ro, initial_dict, velocity_pm):
+
+   initial_dict['powders'][0]['omega'] = wq * initial_dict['init_conditions']['q']
+   initial_dict['init_conditions']['W_0'] = initial_dict['powders'][0]['omega']/ro
+   result = ozvb_lagrange(initial_dict)
+   velocity_pm = 1800
+   mass = None
+   if result['stop_reason'] == 'x_p' and result['layers'][-1]['u'][-1] < velocity_pm:
+      reason='v_p'
+   else:
+      reason = result['stop_reason']
+   if reason == 'x_p':
+      try:
+         mass = get_mass(result, initial_dict)
+      except(ValueError):
+         mass = None
+         reason = "destroy"
+   return {
+      'wq': wq,
+      'ro': ro,
+      'reason': reason,
+      'mass': mass,
+      } 
