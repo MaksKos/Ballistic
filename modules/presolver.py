@@ -75,20 +75,20 @@ def find_initial_point(initial_dict: dict, max_loop=1000):
         'success': success,
     }  
 
-def random_points(initial_dict: dict, center, bounds, max_loop = 1000):
+def random_points(initial_dict: dict, center, bounds, max_loop=1000, v_d=1800):
 
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
    tabel = list()
    for i in range(max_loop):
-      tabel.append(generate_point(wq[i], ro[i], initial_dict, 1800))
+      tabel.append(generate_point(wq[i], ro[i], initial_dict, v_d))
    return tabel
 
-def random_points_multiproc(initial_dict: dict, center, bounds, max_loop = 1000, core=2):
+def random_points_multiproc(initial_dict: dict, center, bounds, max_loop=1000, v_d=1800, core=2):
    
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
-   tabel = Parallel(n_jobs=core)(delayed(generate_point)(wq[i], ro[i], initial_dict, 1800) for i in range(max_loop))
+   tabel = Parallel(n_jobs=core, verbose=10)(delayed(generate_point)(wq[i], ro[i], initial_dict, v_d) for i in range(max_loop))
 
    return tabel
 
@@ -106,12 +106,11 @@ def get_mass(result, initial_dict):
    cannon = Cannon(diametr, matrix_x, matrix_p, l0)
    return cannon.get_mass()
 
-def generate_point(wq, ro, initial_dict, velocity_pm):
+def generate_point(wq, ro, initial_dict, velocity_pm=1800):
 
    initial_dict['powders'][0]['omega'] = wq * initial_dict['init_conditions']['q']
    initial_dict['init_conditions']['W_0'] = initial_dict['powders'][0]['omega']/ro
    result = ozvb_lagrange(initial_dict)
-   velocity_pm = 1800
    mass = None
    if result['stop_reason'] == 'x_p' and result['layers'][-1]['u'][-1] < velocity_pm:
       reason='v_p'
