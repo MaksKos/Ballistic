@@ -8,10 +8,10 @@ def init_dict(dbname, wq=None, ro=None):
     if dbname is None:
         raise TypeError("empty name")
     d = 125*1e-3          # калибр м
-    q = 4.85           # вес снаряда кг
-    velocity_pm = 1700         # дульная скорость снаряда
+    q = 7.05           # вес снаряда кг
+    velocity_pm = 1800         # дульная скорость снаряда
     n_s = 1           # нарезное орудие
-    max_pressure = 800*1e6    # максимальное давление Па
+    max_pressure = 600*1e6    # максимальное давление Па
     tube_lenght = 5543*1e-3      # длина трубы     
     p_fors = 10*1e6  
     return  {
@@ -31,7 +31,7 @@ def init_dict(dbname, wq=None, ro=None):
     },
     'igniter': 
     {
-       'p_ign_0': 5000000.0 #check it 
+       'p_ign_0': 5_000_000.0 #check it 
     },
   
     'meta_lagrange': 
@@ -89,7 +89,6 @@ def random_points_multiproc(initial_dict: dict, center, bounds, max_loop=1000, v
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
    tabel = Parallel(n_jobs=core, verbose=10)(delayed(generate_point)(wq[i], ro[i], initial_dict, v_d) for i in range(max_loop))
-
    return tabel
 
 def get_mass(result, initial_dict):

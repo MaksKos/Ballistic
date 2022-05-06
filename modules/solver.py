@@ -11,6 +11,7 @@ from scipy.optimize import minimize, OptimizeResult
 class Solver():
 
     min_velocity = 1800
+
     def __init__(self, initial_parametrs, *args, **kwargs) -> None:
 
         if  initial_parametrs['powders'][0]['dbname'] is None:
@@ -119,7 +120,6 @@ class Solver():
             matrix.append(layer[label])
         return np.array(matrix)
 
-
     def cannon_mass(self, result_dict=None):
         
         if result_dict is None:
@@ -165,7 +165,7 @@ class Cannon():
     n_safety = 1.1
     sigma_steel = 10e8
     ro = 7856
-    W_sn = 0 
+    W_sn = 6.85*1e-4 
     k_min_r_otside = 1.5
 
     def __init__(self, diametr, coordinate, pressure, l0) -> None:
