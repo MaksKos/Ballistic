@@ -10,7 +10,7 @@ from scipy.optimize import minimize, OptimizeResult
 
 class Solver():
 
-    min_velocity = 1800
+    min_velocity = 1700
 
     def __init__(self, initial_parametrs, *args, **kwargs) -> None:
 
@@ -98,7 +98,7 @@ class Solver():
 
         self._min_criterion = self.cannon_mass(result_dict)
         diff_velocity = self.min_velocity - result_dict['layers'][-1]['u'][-1]
-        diff_lenght = np.abs(result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p'])
+        diff_lenght = result_dict['layers'][-1]['x'][-1] - self.initial_parametrs['stop_conditions']['x_p']
         diff_pressure = np.max(self.make_matrix(result_dict, 'p')) - self.initial_parametrs['stop_conditions']['p_max']
 
         heviside = np.heaviside([diff_velocity, diff_lenght, diff_pressure], 0)

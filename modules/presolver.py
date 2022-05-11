@@ -9,7 +9,7 @@ def init_dict(dbname, wq=None, ro=None):
         raise TypeError("empty name")
     d = 125*1e-3          # калибр м
     q = 7.05           # вес снаряда кг
-    velocity_pm = 1800         # дульная скорость снаряда
+    velocity_pm = 1700         # дульная скорость снаряда
     n_s = 1           # нарезное орудие
     max_pressure = 600*1e6    # максимальное давление Па
     tube_lenght = 5543*1e-3      # длина трубы     
@@ -45,6 +45,7 @@ def init_dict(dbname, wq=None, ro=None):
        'steps_max': 8000,   
        't_max': 0.08,
        'p_max': max_pressure,
+       'v_p': velocity_pm,
     }
     }
 
@@ -75,7 +76,7 @@ def find_initial_point(initial_dict: dict, max_loop=1000):
         'success': success,
     }  
 
-def random_points(initial_dict: dict, center, bounds, max_loop=1000, v_d=1800):
+def random_points(initial_dict: dict, center, bounds, max_loop=1000, v_d=1700):
 
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
@@ -84,11 +85,11 @@ def random_points(initial_dict: dict, center, bounds, max_loop=1000, v_d=1800):
       tabel.append(generate_point(wq[i], ro[i], initial_dict, v_d))
    return tabel
 
-def random_points_multiproc(initial_dict: dict, center, bounds, max_loop=1000, v_d=1800, core=2):
+def random_points_multiproc(initial_dict: dict, center, bounds, max_loop=1000, v_d=1700, core=2):
    
    wq = (np.random.rand(max_loop)*2-1)*bounds[0] + center[0]
    ro = (np.random.rand(max_loop)*2-1)*bounds[1] + center[1]
-   tabel = Parallel(n_jobs=core, verbose=10)(delayed(generate_point)(wq[i], ro[i], initial_dict, v_d) for i in range(max_loop))
+   tabel = Parallel(n_jobs=core, verbose=4)(delayed(generate_point)(wq[i], ro[i], initial_dict, v_d) for i in range(max_loop))
    return tabel
 
 def get_mass(result, initial_dict):
@@ -105,17 +106,18 @@ def get_mass(result, initial_dict):
    cannon = Cannon(diametr, matrix_x, matrix_p, l0)
    return cannon.get_mass()
 
-def generate_point(wq, ro, initial_dict, velocity_pm=1800):
+def generate_point(wq, ro, initial_dict, velocity_pm=1700):
 
    initial_dict['powders'][0]['omega'] = wq * initial_dict['init_conditions']['q']
    initial_dict['init_conditions']['W_0'] = initial_dict['powders'][0]['omega']/ro
    result = ozvb_lagrange(initial_dict)
    mass = None
-   if result['stop_reason'] == 'x_p' and result['layers'][-1]['u'][-1] < velocity_pm:
-      reason='v_p'
-   else:
-      reason = result['stop_reason']
-   if reason == 'x_p':
+   #if result['stop_reason'] == 'x_p' and result['layers'][-1]['u'][-1] < velocity_pm:
+   #   reason='v_p'
+   #else:
+   #   reason = result['stop_reason']
+   reason = result['stop_reason']
+   if reason == 'v_p': # x_p
       try:
          mass = get_mass(result, initial_dict)
       except(ValueError):
